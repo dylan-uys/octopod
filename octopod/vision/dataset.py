@@ -68,6 +68,7 @@ class OctopodImageDataset(Dataset):
         to point to cached file"""
         fpath_sans_ext, _ = os.path.splitext(self.x[index])
         target_fpath = os.path.join(self.cache_dir, f'{fpath_sans_ext}{suffix}.zarr')
+        print(f'Caching {target_fpath}')
         cache_dict[index] = target_fpath
         zarr.save(target_fpath, x.numpy())
 
