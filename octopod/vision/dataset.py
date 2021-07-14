@@ -72,7 +72,8 @@ class OctopodImageDataset(Dataset):
         cache_dict[index] = target_fpath
         try:
             zarr.save(target_fpath, x.numpy())
-        except:
+        except Exception as e:
+            print(e)
             print(f"Failed to cache {target_fpath}")
             print(f"{len(cache_dict)} images cached so far")
             total, used, free = shutil.disk_usage(self.cache_dir)
