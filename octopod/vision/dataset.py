@@ -75,7 +75,7 @@ class OctopodImageDataset(Dataset):
         except:
             print(f"Failed to cache {target_fpath}")
             print(f"{len(cache_dict)} images cached so far")
-            total, used, free = shutil.disk_usage("/")
+            total, used, free = shutil.disk_usage(self.cache_dir)
             print("Total: %d GiB" % (total // (2**30)))
             print("Used: %d GiB" % (used // (2**30)))
             print("Free: %d GiB" % (free // (2**30)))
