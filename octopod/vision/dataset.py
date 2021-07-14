@@ -1,4 +1,5 @@
 import os
+import shutil
 import numpy as np
 from PIL import Image
 from io import BytesIO
@@ -68,9 +69,16 @@ class OctopodImageDataset(Dataset):
         to point to cached file"""
         fpath_sans_ext, _ = os.path.splitext(self.x[index])
         target_fpath = os.path.join(self.cache_dir, f'{fpath_sans_ext}{suffix}.zarr')
-        print(f'Caching {target_fpath}')
         cache_dict[index] = target_fpath
-        zarr.save(target_fpath, x.numpy())
+        try:
+            zarr.save(target_fpath, x.numpy())
+        except:
+            print(f"Failed to cache {target_fpath}")
+            print(f"{len(cache_dict)} images cached so far")
+            total, used, free = shutil.disk_usage("/")
+            print("Total: %d GiB" % (total // (2**30)))
+            print("Used: %d GiB" % (used // (2**30)))
+            print("Free: %d GiB" % (free // (2**30)))
 
     def _load_cached_image(self, index, cache_dict):
         return torch.from_numpy(zarr.load(cache_dict[index])[:])
