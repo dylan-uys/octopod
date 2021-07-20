@@ -91,10 +91,8 @@ class OctopodImageDataset(Dataset):
 
         # load and preprocess image
         if self.x_cache_state[index]:
-            # if this image has already been preprocessed and cached, load its vector
             full_img = self._load_cached_image(index, self.x_cache_state)
         else:
-            # otherwise, load the original image, preprocess it and cache it
             if self.s3_bucket is not None:
                 file_byte_string = self.s3_client.get_object(
                     Bucket=self.s3_bucket, Key=self.x[index])['Body'].read()
@@ -104,14 +102,19 @@ class OctopodImageDataset(Dataset):
 
         if self.use_cropped_image:
             # process cropped image
-            if index in self.x_cropped_cache_state:
-                # if this image has already been preprocessed and cached, load its vector
-                cropped_img = self._load_cached_image(index, self.x_cropped_cache_state, '_cropped')
+            if self.x_cropped_cache_state[index]:
+                cropped_img = self._load_cached_image(
+                    index,
+                    self.x_cropped_cache_state,
+                    '_cropped')
             else:
-                # otherwise, crop preprocess and cache
                 cropped_img = center_crop_pil_image(full_img)
                 cropped_img = self.crop_transform(cropped_img)
-                self._cache_image(cropped_img, index, self.x_cropped_cache_state, '_cropped')
+                self._cache_image(
+                    cropped_img,
+                    index,
+                    self.x_cropped_cache_state,
+                    '_cropped')
 
             full_img = self.transform(full_img)
             self._cache_image(full_img, index, self.x_cache_state)
