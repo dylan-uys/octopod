@@ -72,14 +72,13 @@ class OctopodImageDataset(Dataset):
         else:
             self.crop_transform = crop_transform
 
-    def _cache_image(self, x, index, cache_state_array, suffix=''):
+    def _cache_image(self, x, index, suffix=''):
         """Write preprocessed image to zarr file, update cache_dict member variable
         to point to cached file"""
         target_fpath = os.path.join(self.cache_dir, f'{index}{suffix}.zarr')
         zarr.save(target_fpath, x.numpy())
-        cache_state_array[index] = 1
 
-    def _load_cached_image(self, index, cache_state_array, suffix=''):
+    def _load_cached_image(self, index, suffix=''):
         target_fpath = os.path.join(self.cache_dir, f'{index}{suffix}.zarr')
         return torch.from_numpy(zarr.load(target_fpath)[:])
 
@@ -89,9 +88,8 @@ class OctopodImageDataset(Dataset):
         label = self.label_encoder.transform([label])[0]
         label = torch.from_numpy(np.array(label)).long()
 
-        # load and preprocess image
         if self.x_cache_state[index]:
-            full_img = self._load_cached_image(index, self.x_cache_state)
+            full_img = self._load_cached_image(index)
         else:
             if self.s3_bucket is not None:
                 file_byte_string = self.s3_client.get_object(
@@ -101,29 +99,22 @@ class OctopodImageDataset(Dataset):
                 full_img = Image.open(self.x[index]).convert('RGB')
 
         if self.use_cropped_image:
-            # process cropped image
             if self.x_cropped_cache_state[index]:
-                cropped_img = self._load_cached_image(
-                    index,
-                    self.x_cropped_cache_state,
-                    '_cropped')
+                cropped_img = self._load_cached_image(index, '_cropped')
             else:
                 cropped_img = center_crop_pil_image(full_img)
                 cropped_img = self.crop_transform(cropped_img)
-                self._cache_image(
-                    cropped_img,
-                    index,
-                    self.x_cropped_cache_state,
-                    '_cropped')
-
-            full_img = self.transform(full_img)
-            self._cache_image(full_img, index, self.x_cache_state)
-            return {'full_img': full_img,
-                    'crop_img': cropped_img}, label
+                self._cache_image(cropped_img, index, '_cropped')
+                self.x_cropped_cache_state[index] = 1
 
         if not isinstance(full_img, torch.Tensor):
             full_img = self.transform(full_img)
-            self._cache_image(full_img, index, self.x_cache_state)
+            self._cache_image(full_img, index)
+            self.x_cache_state[index] = 1
+
+        if self.use_cropped_image:
+            return {'full_img': full_img,
+                    'crop_img': cropped_img}, label
 
         return {'full_img': full_img}, label
 
