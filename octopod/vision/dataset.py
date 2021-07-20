@@ -15,7 +15,7 @@ from octopod.vision.helpers import center_crop_pil_image
 
 
 def _create_shared_array(n_elems):
-    return np.ctypeslib.as_array(mp.Array(ctypes.c_float, n_elems).get_obj())
+    return np.ctypeslib.as_array(mp.Array(ctypes.c_int, n_elems).get_obj())
 
 
 class OctopodImageDataset(Dataset):
@@ -49,11 +49,10 @@ class OctopodImageDataset(Dataset):
                  cache_dir='image_vectors'):
         self.x = x
         self.y = y
-
         self.x_cache_state = _create_shared_array(len(x))
-        self.x_cache_state = np.zeros(len(x))
+        self.x_cache_state[:] = np.zeros(len(x))
         self.x_cropped_cache_state = _create_shared_array(len(x))
-        self.x_cropped_cache_state = np.zeros(len(x))
+        self.x_cropped_cache_state[:] = np.zeros(len(x))
 
         self.cache_dir = cache_dir
         self.use_cropped_image = use_cropped_image
@@ -103,7 +102,7 @@ class OctopodImageDataset(Dataset):
             else:
                 full_img = Image.open(self.x[index]).convert('RGB')
 
-        if self.x_cropped_cache_state[index]:
+        if self.use_cropped_image:
             # process cropped image
             if index in self.x_cropped_cache_state:
                 # if this image has already been preprocessed and cached, load its vector
@@ -122,6 +121,7 @@ class OctopodImageDataset(Dataset):
         if not isinstance(full_img, torch.Tensor):
             full_img = self.transform(full_img)
             self._cache_image(full_img, index, self.x_cache_state)
+
         return {'full_img': full_img}, label
 
     def __len__(self):
