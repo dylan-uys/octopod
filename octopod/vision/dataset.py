@@ -46,6 +46,7 @@ class OctopodImageDataset(Dataset):
                  use_cropped_image=True,
                  transform='train',
                  crop_transform='train',
+                 use_cache=True,
                  cache_dir='image_vectors'):
         self.x = x
         self.y = y
@@ -53,6 +54,7 @@ class OctopodImageDataset(Dataset):
         self.x_cache_state[:] = np.zeros(len(x))
         self.x_cropped_cache_state = _create_shared_array(len(x))
         self.x_cropped_cache_state[:] = np.zeros(len(x))
+        self.use_cache = use_cache
 
         self.cache_dir = cache_dir
         self.use_cropped_image = use_cropped_image
@@ -88,18 +90,22 @@ class OctopodImageDataset(Dataset):
         label = self.label_encoder.transform([label])[0]
         label = torch.from_numpy(np.array(label)).long()
 
-        if self.x_cache_state[index]:
+        if self.use_cache and self.x_cache_state[index]:
             full_img = self._load_cached_image(index)
         else:
             if self.s3_bucket is not None:
-                file_byte_string = self.s3_client.get_object(
-                    Bucket=self.s3_bucket, Key=self.x[index])['Body'].read()
-                full_img = Image.open(BytesIO(file_byte_string)).convert('RGB')
+                try:
+                    file_byte_string = self.s3_client.get_object(
+                        Bucket=self.s3_bucket, Key=self.x[index])['Body'].read()
+                    full_img = Image.open(BytesIO(file_byte_string)).convert('RGB')
+                except Exception as e:
+                    print(f'Error getting image data: bucket={self.s3_bucket} key={self.x[index]}')
+                    raise
             else:
                 full_img = Image.open(self.x[index]).convert('RGB')
 
         if self.use_cropped_image:
-            if self.x_cropped_cache_state[index]:
+            if self.use_cache and  self.x_cropped_cache_state[index]:
                 cropped_img = self._load_cached_image(index, '_cropped')
             else:
                 cropped_img = center_crop_pil_image(full_img)
