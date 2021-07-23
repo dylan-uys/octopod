@@ -116,7 +116,7 @@ class OctopodImageDataset(Dataset):
 
         if not isinstance(full_img, torch.Tensor):
             full_img = self.transform(full_img)
-            if use_cache:
+            if self.use_cache:
                 self._cache_image(full_img, index)
                 self.x_cache_state[index] = 1
 
