@@ -6,9 +6,10 @@ resnet_img_size = 224
 
 full_img_transforms = {
     'train': transforms.Compose([
-        transforms.Resize((256, 256)),
-        transforms.RandomResizedCrop(resnet_img_size),
-        transforms.RandomHorizontalFlip(),
+        #transforms.Resize((256, 256))
+        #transforms.RandomResizedCrop(resnet_img_size),
+        #transforms.RandomHorizontalFlip(),
+        transforms.Resize((resnet_img_size, resnet_img_size)),
         transforms.ToTensor(),
         transforms.Normalize(imagenet_rgb_means, imagenet_rgb_std)
     ]),
@@ -21,11 +22,12 @@ full_img_transforms = {
 
 cropped_transforms = {
     'train': transforms.Compose([
-        transforms.Resize((256, 256)),
-        transforms.RandomHorizontalFlip(),
-        transforms.RandomVerticalFlip(),
-        transforms.RandomRotation(30),
-        transforms.RandomResizedCrop(resnet_img_size),
+        #transforms.Resize((256, 256)),
+        #transforms.RandomHorizontalFlip(),
+        #transforms.RandomVerticalFlip(),
+        #transforms.RandomRotation(30),
+        #transforms.RandomResizedCrop(resnet_img_size),
+        transforms.Resize((resnet_img_size, resnet_img_size)),
         transforms.ToTensor(),
         transforms.Normalize(imagenet_rgb_means, imagenet_rgb_std)
     ]),
