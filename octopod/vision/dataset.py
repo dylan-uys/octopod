@@ -94,13 +94,9 @@ class OctopodImageDataset(Dataset):
             full_img = self._load_cached_image(index)
         else:
             if self.s3_bucket is not None:
-                try:
-                    file_byte_string = self.s3_client.get_object(
-                        Bucket=self.s3_bucket, Key=self.x[index])['Body'].read()
-                    full_img = Image.open(BytesIO(file_byte_string)).convert('RGB')
-                except Exception as e:
-                    print(f'Error getting image data: bucket={self.s3_bucket} key={self.x[index]}')
-                    raise
+                file_byte_string = self.s3_client.get_object(
+                    Bucket=self.s3_bucket, Key=self.x[index])['Body'].read()
+                full_img = Image.open(BytesIO(file_byte_string)).convert('RGB')
             else:
                 full_img = Image.open(self.x[index]).convert('RGB')
 
