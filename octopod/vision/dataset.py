@@ -110,13 +110,15 @@ class OctopodImageDataset(Dataset):
             else:
                 cropped_img = center_crop_pil_image(full_img)
                 cropped_img = self.crop_transform(cropped_img)
-                self._cache_image(cropped_img, index, '_cropped')
-                self.x_cropped_cache_state[index] = 1
+                if use_cache:
+                    self._cache_image(cropped_img, index, '_cropped')
+                    self.x_cropped_cache_state[index] = 1
 
         if not isinstance(full_img, torch.Tensor):
             full_img = self.transform(full_img)
-            self._cache_image(full_img, index)
-            self.x_cache_state[index] = 1
+            if use_cache:
+                self._cache_image(full_img, index)
+                self.x_cache_state[index] = 1
 
         if self.use_cropped_image:
             return {'full_img': full_img,
