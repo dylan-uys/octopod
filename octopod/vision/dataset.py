@@ -106,7 +106,7 @@ class OctopodImageDataset(Dataset):
             else:
                 cropped_img = center_crop_pil_image(full_img)
                 cropped_img = self.crop_transform(cropped_img)
-                if use_cache:
+                if self.use_cache:
                     self._cache_image(cropped_img, index, '_cropped')
                     self.x_cropped_cache_state[index] = 1
 
