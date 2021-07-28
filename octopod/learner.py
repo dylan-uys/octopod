@@ -71,6 +71,7 @@ class MultiTaskLearner(object):
         self.metric_function_dict = self._get_metric_functions(metric_function_dict)
         self.tensorboard_summary_writer = tensorboard_summary_writer
         self._check_all_labels_present()
+        self.num_training_epochs = None
 
     def fit(
         self,
@@ -216,6 +217,8 @@ class MultiTaskLearner(object):
                 num_epochs_no_improvement += 1
                 if num_epochs_no_improvement >= num_early_stopping_epochs:
                     break
+
+        self.num_training_epochs = epoch
 
         if best_model:
             self.model.load_state_dict(best_model_wts)
