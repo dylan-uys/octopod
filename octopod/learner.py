@@ -196,9 +196,9 @@ class MultiTaskLearner(object):
                 val_loss = f'{val_loss_dict[task]:.6f}'
                 metric_name = self.metric_function_dict[task].__name__
                 metric_val = f"{metrics_scores[task][metric_name]:.6f}"
-                self._tensorboard_add_scalar(f'{task}_train_loss', train_loss, epoch)
-                self._tensorboard_add_scalar(f'{task}_val_loss', val_loss, epoch)
-                self._tensorboard_add_scalar(f'{task}_{metric_name}', metric_val, epoch)
+                self._tensorboard_add_scalar(f'{task}_train_loss', float(train_loss), epoch)
+                self._tensorboard_add_scalar(f'{task}_val_loss', float(val_loss), epoch)
+                self._tensorboard_add_scalar(f'{task}_{metric_name}', float(metric_val), epoch)
                 str_stats.append(train_loss)
                 str_stats.append(val_loss)
                 str_stats.append(metric_val)
