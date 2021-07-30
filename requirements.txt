@@ -112,7 +112,7 @@ torch==1.8.1
     # via
     #   octopod (setup.py)
     #   torchvision
-torchvision==0.10.0
+torchvision==0.9.0
     # via octopod (setup.py)
 tqdm==4.60.0
     # via
