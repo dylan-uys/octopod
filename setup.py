@@ -29,7 +29,7 @@ setup(
         'sentencepiece!=0.1.92',
         'scikit-learn',
         'torch',
-        'torchvision==0.9.0',
+        'torchvision==0.8.0',
         'transformers>=2.3.0,<3.0.0',  # we have had issues training models with V3
         'wildebeest',
     ],
