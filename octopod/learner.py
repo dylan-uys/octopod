@@ -60,7 +60,8 @@ class MultiTaskLearner(object):
                  val_dataloader,
                  task_dict,
                  loss_function_dict=None,
-                 metric_function_dict=None):
+                 metric_function_dict=None,
+                 tensorboard_summary_writer=None):
         self.model = model
         self.train_dataloader = train_dataloader
         self.val_dataloader = val_dataloader
@@ -68,7 +69,9 @@ class MultiTaskLearner(object):
         self.tasks = [*task_dict]
         self.loss_function_dict = self._get_loss_functions(loss_function_dict)
         self.metric_function_dict = self._get_metric_functions(metric_function_dict)
+        self.tensorboard_summary_writer = tensorboard_summary_writer
         self._check_all_labels_present()
+        self.num_training_epochs = None
 
     def fit(
         self,
@@ -190,14 +193,18 @@ class MultiTaskLearner(object):
                 )
 
             for task in self.tasks:
-                str_stats.append(f'{self.smooth_training_loss_dict[task]:.6f}')
-                str_stats.append(f'{val_loss_dict[task]:.6f}')
-                str_stats.append(
-                    f"{metrics_scores[task][self.metric_function_dict[task].__name__]:.6f}"
-                )
+                train_loss = f'{self.smooth_training_loss_dict[task]:.6f}'
+                val_loss = f'{val_loss_dict[task]:.6f}'
+                metric_name = self.metric_function_dict[task].__name__
+                metric_val = f"{metrics_scores[task][metric_name]:.6f}"
+                self._tensorboard_add_scalar(f'{task}_train_loss', float(train_loss), epoch)
+                self._tensorboard_add_scalar(f'{task}_val_loss', float(val_loss), epoch)
+                self._tensorboard_add_scalar(f'{task}_{metric_name}', float(metric_val), epoch)
+                str_stats.append(train_loss)
+                str_stats.append(val_loss)
+                str_stats.append(metric_val)
 
             str_stats.append(format_time(time.time() - start_time))
-
             pbar.write(str_stats, table=True)
 
             if overall_val_loss < current_best_loss:
@@ -211,9 +218,15 @@ class MultiTaskLearner(object):
                 if num_epochs_no_improvement >= num_early_stopping_epochs:
                     break
 
+        self.num_training_epochs = epoch
+
         if best_model:
             self.model.load_state_dict(best_model_wts)
             print(f'Epoch {best_model_epoch} best model saved with loss of {current_best_loss}')
+
+    def _tensorboard_add_scalar(self, key, val, epoch):
+        if self.tensorboard_summary_writer:
+            self.tensorboard_summary_writer.add_scalar(key,  val, epoch)
 
     def _update_smooth_training_loss_dict(self, task_type, current_loss, smooth_loss_alpha):
         self.smooth_training_loss_dict[task_type] = (
