@@ -8,30 +8,40 @@ from torchvision import models as torch_models
 from octopod.vision.helpers import _dense_block, _Identity
 
 
+MODEL_CLASSES = {
+    'resnet18':  torch_models.resnet18,
+    'resnet34':  torch_models.resnet34,
+    'resnet50': torch_models.resnet50,
+    'resnet101': torch_models.resnet101,
+    'resnet152': torch_models.resnet152,
+    'wide_resnet50_2': torch_models.wide_resnet50_2,
+    'wide_resnet101_2': torch_models.wide_resnet101_2
+}
 
-class ResnetForMultiTaskClassification(nn.Module):
+
+class CNNForMultiTaskClassification(nn.Module):
     """
     PyTorch image attribute model. This model allows you to load
     in some pretrained tasks in addition to creating new ones.
 
     Examples
     --------
-    To instantiate a completely new instance of ResnetForMultiTaskClassification
-    and load the weights into this architecture you can set `pretrained` to True::
+    To instantiate a completely new instance of CNNForMultiTaskClassification
+    and load the weights into this architecture you can set `pretrained_core` to True::
 
-        model = ResnetForMultiTaskClassification(
+        model = CNNForMultiTaskClassification(
             new_task_dict=new_task_dict,
-            load_pretrained_resnet = True
+            load_pretrained_cnn = True
         )
 
         # DO SOME TRAINING
 
         model.save(SOME_FOLDER, SOME_MODEL_ID)
 
-    To instantiate an instance of ResnetForMultiTaskClassification that has layers for
+    To instantiate an instance of CNNForMultiTaskClassification that has layers for
     pretrained tasks and new tasks, you would do the following::
 
-        model = ResnetForMultiTaskClassification(
+        model = CNNForMultiTaskClassification(
             pretrained_task_dict=pretrained_task_dict,
             new_task_dict=new_task_dict
         )
@@ -46,21 +56,22 @@ class ResnetForMultiTaskClassification(nn.Module):
         dictionary mapping each pretrained task to the number of labels it has
     new_task_dict: dict
         dictionary mapping each new task to the number of labels it has
-    load_pretrained_resnet: boolean
-        flag for whether or not to load in pretrained weights for ResNet50.
+    pretrained_core: boolean
+        flag for whether or not to load in pretrained imagenet weights.
         useful for the first round of training before there are fine tuned weights
     """
     def __init__(
         self,
+        model_arch='resnet50',
         pretrained_task_dict=None,
         new_task_dict=None,
         use_cropped_image=True,
-        load_pretrained_resnet=False):
+        pretrained_core=False):
 
-        super(ResnetForMultiTaskClassification, self).__init__()
+        super(CNNForMultiTaskClassification, self).__init__()
 
-        self.resnet = torch_models.resnet50(pretrained=load_pretrained_resnet)
-        self.resnet.fc = _Identity()
+        self.core_model = MODEL_CLASSES[model_arch](pretrained=pretrained_core)
+        self.core_model.fc = _Identity()
 
         self.use_cropped_image = use_cropped_image
         output_size_multiplier = 2 if self.use_cropped_image else 1
@@ -98,8 +109,8 @@ class ResnetForMultiTaskClassification(nn.Module):
         A dictionary mapping each task to its logits
         """
         if self.use_cropped_image:
-            full_img = self.resnet(x['full_img']).squeeze()
-            crop_img = self.resnet(x['crop_img']).squeeze()
+            full_img = self.core_model(x['full_img']).squeeze()
+            crop_img = self.core_model(x['crop_img']).squeeze()
 
             if x[next(iter(x))].shape[0] == 1:
                 # if batch size is 1, or a single image, during inference
@@ -108,7 +119,7 @@ class ResnetForMultiTaskClassification(nn.Module):
                 dense_layer_input = torch.cat((full_img, crop_img), 1)
 
         else:
-            dense_layer_input = self.resnet(x['full_img']).squeeze()
+            dense_layer_input = self.core_model(x['full_img']).squeeze()
 
         dense_layer_output = self.dense_layers(dense_layer_input)
 
@@ -124,7 +135,7 @@ class ResnetForMultiTaskClassification(nn.Module):
 
     def freeze_core(self):
         """Freeze all core model layers"""
-        for param in self.resnet.parameters():
+        for param in self.core_model.parameters():
             param.requires_grad = False
 
     def freeze_dense(self):
@@ -152,7 +163,7 @@ class ResnetForMultiTaskClassification(nn.Module):
 
     def unfreeze_pretrained_classifiers_and_core(self):
         """Unfreeze pretrained classifiers and core model layers"""
-        for param in self.resnet.parameters():
+        for param in self.core_model.parameters():
             param.requires_grad = True
         for param in self.dense_layers.parameters():
             param.requires_grad = True
@@ -177,7 +188,7 @@ class ResnetForMultiTaskClassification(nn.Module):
         Side Effects
         ------------
         saves three files:
-            - folder / f'resnet_dict_{model_id}.pth'
+            - folder / f'rcore_model_dict_{model_id}.pth'
             - folder / f'dense_layers_dict_{model_id}.pth'
             - folder / f'pretrained_classifiers_dict_{model_id}.pth'
         """
@@ -194,8 +205,8 @@ class ResnetForMultiTaskClassification(nn.Module):
         folder.mkdir(parents=True, exist_ok=True)
 
         torch.save(
-            self.resnet.state_dict(),
-            folder / f'resnet_dict_{model_id}.pth'
+            self.core_model.state_dict(),
+            folder / f'core_model_dict_{model_id}.pth'
         )
         torch.save(
             self.dense_layers.state_dict(),
@@ -228,16 +239,16 @@ class ResnetForMultiTaskClassification(nn.Module):
         folder = Path(folder)
 
         if torch.cuda.is_available():
-            self.resnet.load_state_dict(torch.load(folder / f'resnet_dict_{model_id}.pth'))
+            self.core_model.load_state_dict(torch.load(folder / f'core_model_dict_{model_id}.pth'))
             self.dense_layers.load_state_dict(
                 torch.load(folder / f'dense_layers_dict_{model_id}.pth'))
             self.pretrained_classifiers.load_state_dict(
                 torch.load(folder / f'pretrained_classifiers_dict_{model_id}.pth')
             )
         else:
-            self.resnet.load_state_dict(
+            self.core_model.load_state_dict(
                 torch.load(
-                    folder / f'resnet_dict_{model_id}.pth',
+                    folder / f'core_model_dict_{model_id}.pth',
                     map_location=lambda storage,
                     loc: storage
                 )
