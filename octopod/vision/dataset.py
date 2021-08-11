@@ -30,6 +30,12 @@ class OctopodImageDataset(Dataset):
         A list of dummy-encoded categories or strings
         For instance, y might be [0,1,2,0] for a 3 class problem with 4 samples,
         or strings which will be encoded using a sklearn label encoder
+    s3_bucket: str
+        S3 bucket that the images are hosted in. If false, x should contain absolute filepaths
+    use_full_image: bool
+        whether or not to use the full image
+    use_cropped_image: bool
+        whether or not to use a cropped version of the image
     transform: str or list of PyTorch transforms
         specifies how to preprocess the full image for a Octopod image model
         To use the built-in Octopod image transforms, use the strings: `train` or `val`
@@ -43,6 +49,7 @@ class OctopodImageDataset(Dataset):
                  x,
                  y,
                  s3_bucket=None,
+                 use_full_image=True,
                  use_cropped_image=True,
                  transform='train',
                  crop_transform='train',
@@ -57,7 +64,11 @@ class OctopodImageDataset(Dataset):
         self.use_cache = use_cache
 
         self.cache_dir = cache_dir
+        self.use_full_image = use_full_image
         self.use_cropped_image = use_cropped_image
+        assert self.use_full_image or self.use_cropped_image, \
+        'Either use_full_image or use_cropped_image must be True'
+
         self.s3_bucket = s3_bucket
         self.s3_client = None if self.s3_bucket is None else boto3.client('s3')
         self.label_encoder, self.label_mapping = self._encode_labels()
@@ -110,17 +121,20 @@ class OctopodImageDataset(Dataset):
                     self._cache_image(cropped_img, index, '_cropped')
                     self.x_cropped_cache_state[index] = 1
 
-        if not isinstance(full_img, torch.Tensor):
+        # transform into tensor must happen after cropping as a PIL image above
+        if self.use_full_image and not isinstance(full_img, torch.Tensor):
             full_img = self.transform(full_img)
             if self.use_cache:
                 self._cache_image(full_img, index)
                 self.x_cache_state[index] = 1
 
+        img_dict = {}
+        if self.use_full_image:
+            img_dict['full_img'] = full_img
         if self.use_cropped_image:
-            return {'full_img': full_img,
-                    'crop_img': cropped_img}, label
+            img_dict['crop_img'] = cropped_img
 
-        return {'full_img': full_img}, label
+        return img_dict, label
 
     def __len__(self):
         return len(self.x)

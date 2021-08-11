@@ -56,6 +56,13 @@ class CNNForMultiTaskClassification(nn.Module):
         dictionary mapping each pretrained task to the number of labels it has
     new_task_dict: dict
         dictionary mapping each new task to the number of labels it has
+    use_full_image: bool
+        boolean indicating whether to include the full image as input to the core model.
+    use_cropped_image: bool
+        boolean indicating whether to include a cropped version of the image as input to the
+        core model. If both this and use_full_image are set to true, the full and croppped
+        images are sent independently through the core model, their respective outputs
+        concatenated together before being processed by the dense layers.
     pretrained_core: boolean
         flag for whether or not to load in pretrained imagenet weights.
         useful for the first round of training before there are fine tuned weights
@@ -65,6 +72,7 @@ class CNNForMultiTaskClassification(nn.Module):
         model_arch='resnet50',
         pretrained_task_dict=None,
         new_task_dict=None,
+        use_full_image=True,
         use_cropped_image=True,
         pretrained_core=False):
 
@@ -73,8 +81,12 @@ class CNNForMultiTaskClassification(nn.Module):
         self.core_model = MODEL_CLASSES[model_arch](pretrained=pretrained_core)
         self.core_model.fc = _Identity()
 
+        self.use_full_image = use_full_image
         self.use_cropped_image = use_cropped_image
-        output_size_multiplier = 2 if self.use_cropped_image else 1
+        assert self.use_full_image or self.use_cropped_image, \
+        'Either use_full_image or use_cropped_image must be True'
+
+        output_size_multiplier = 2 if self.use_cropped_image and self.use_full_image else 1
 
         self.dense_layers = nn.Sequential(
             _dense_block(2048*output_size_multiplier, 1024, 2e-3),
@@ -108,7 +120,7 @@ class CNNForMultiTaskClassification(nn.Module):
         ----------
         A dictionary mapping each task to its logits
         """
-        if self.use_cropped_image:
+        if self.use_full_image and self.use_cropped_image:
             full_img = self.core_model(x['full_img']).squeeze()
             crop_img = self.core_model(x['crop_img']).squeeze()
 
@@ -118,8 +130,10 @@ class CNNForMultiTaskClassification(nn.Module):
             else:
                 dense_layer_input = torch.cat((full_img, crop_img), 1)
 
-        else:
+        elif self.use_full_image:
             dense_layer_input = self.core_model(x['full_img']).squeeze()
+        elif self.use_cropped_image:
+            dense_layer_input = self.core_model(x['crop_img']).squeeze()
 
         dense_layer_output = self.dense_layers(dense_layer_input)
 
